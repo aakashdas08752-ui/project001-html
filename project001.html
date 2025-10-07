@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Rock Paper Scissors Game</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: Arial, sans-serif; background: #f7f7fa; margin:0; }
+    .center { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh;}
+    .hidden { display: none; }
+    .box {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+      max-width: 400px;
+      width: 98vw;
+      padding: 38px 24px 28px 24px;
+      margin: 20px 0;
+      text-align: center;
+    }
+    .big-title { font-size: 2em; margin-bottom: 20px;}
+    .subtitle { opacity: 0.8; margin-bottom: 20px;}
+    #username { font-size:18px; padding:10px; border-radius:6px; width:80%; border:1px solid #bbb; margin-bottom:18px; }
+    .btn, .logout-btn, .reset-btn {
+      background: #667eea;
+      color: #fff;
+      border:none;
+      padding: 12px 28px;
+      border-radius: 30px;
+      cursor: pointer;
+      margin-top: 8px;
+      font-size: 18px;
+      box-shadow: 0 2px 10px #667eea44;
+      transition: 0.2s;
+    }
+    .btn:hover, .logout-btn:hover, .reset-btn:hover { background:#5043c6;}
+    .logout-btn { float: right; padding: 7px 19px; font-size: 15px;}
+    .choices { margin:28px 0 15px 0;}
+    .choice-btn {
+      background: #f2f4fe;
+      font-size: 2em;
+      border:none; border-radius:50%;
+      margin:0 12px; padding:16px 0;width:70px;cursor:pointer;transition:0.2s;
+    }
+    .choice-btn:hover { background:#cbd2ff; }
+    .scoreboard { margin:18px 0; font-size:1.1em; }
+    .resultbox { min-height:38px; font-size:1.2em; margin-bottom:8px;}
+    .stats { display: flex; justify-content: space-evenly; margin:18px 0;}
+    .stat { background:#f6f7ff; padding:10px 8px; border-radius:10px; min-width:70px;}
+    .history { background:#f6f7ff; border-radius:10px; padding:16px; margin-top:20px; max-height:100px;overflow:auto;}
+    .history-title { font-weight:bold; margin-bottom:6px; }
+    @media (max-width:420px) {
+      .box {padding:18px 6vw;}
+      .choice-btn {width:56px;}
+      .stat {font-size:14px;}
+    }
+  </style>
+</head>
+<body>
+<div class="center">
+  <!-- Login -->
+  <div id="login-page" class="box">
+    <div class="big-title">🎮 Rock Paper Scissors</div>
+    <div class="subtitle">Enter your name to play!</div>
+    <input id="username" type="text" maxlength="18" autocomplete="off" placeholder="Name" />
+    <br>
+    <button class="btn" onclick="login()">Login</button>
+  </div>
+  <!-- Game -->
+  <div id="game-page" class="box hidden">
+    <button class="logout-btn" onclick="logout()">Logout</button>
+    <div class="big-title">Hi, <span id="player"></span>!</div>
+    <div class="scoreboard">
+      <b>You:</b> <span id="playerScore">0</span>
+      &nbsp;|&nbsp;
+      <b>Computer:</b> <span id="computerScore">0</span>
+    </div>
+    <div class="stats">
+      <div class="stat">Win Rate <br><span id="winRate">0%</span></div>
+      <div class="stat">Streak <br><span id="streak">0</span></div>
+      <div class="stat">Total <br><span id="totalGames">0</span></div>
+    </div>
+    <div class="resultbox" id="result"></div>
+    <div class="choices">
+      <button class="choice-btn" onclick="play('rock')" title="Rock">🗿</button>
+      <button class="choice-btn" onclick="play('paper')" title="Paper">📄</button>
+      <button class="choice-btn" onclick="play('scissors')" title="Scissors">✂️</button>
+    </div>
+    <button class="reset-btn" onclick="resetStats()">Reset Stats</button>
+    <div class="history">
+      <div class="history-title">Last Games:</div>
+      <div id="historyList"></div>
+    </div>
+  </div>
+</div>
+<script>
+let playerScore = 0, computerScore = 0, totalGames = 0, wins = 0, streak=0, maxStreak = 0;
+let history = [];
+// Load
+window.onload = function() {
+  let data = JSON.parse(localStorage.getItem("rpsGameData")||"{}");
+  playerScore = data.playerScore||0;
+  computerScore = data.computerScore||0;
+  totalGames = data.totalGames||0;
+  wins = data.wins||0;
+  streak = data.streak||0;
+  maxStreak = data.maxStreak||0;
+  history = data.history||[];
+  let user = localStorage.getItem("rpsUser");
+  if (user) showGamePage(user); else showLoginPage();
+  document.getElementById("username").addEventListener("keypress", function(e){if(e.key==="Enter")login();});
+};
+function login() {
+  let name = document.getElementById("username").value.trim();
+  if(name.length<1) return alert("Enter your name!");
+  localStorage.setItem("rpsUser", name);
+  showGamePage(name);
+}
+function logout() {
+  if(confirm("Logout and end session?")) {
+    localStorage.removeItem("rpsUser");
+    showLoginPage();
+  }
+}
+function showLoginPage() {
+  document.getElementById("login-page").classList.remove("hidden");
+  document.getElementById("game-page").classList.add("hidden");
+}
+function showGamePage(user) {
+  document.getElementById("login-page").classList.add("hidden");
+  document.getElementById("game-page").classList.remove("hidden");
+  document.getElementById("player").innerText = user;
+  showStats();
+  showHistory();
+  document.getElementById("result").innerHTML = "";
+}
+function play(playerChoice) {
+  const choices = ['rock', 'paper', 'scissors'];
+  const emoji = {rock:"🗿",paper:"📄",scissors:"✂️"};
+  let computerChoice = choices[Math.floor(Math.random()*3)];
+  let resultText = "", gameRes = "";
+  totalGames++;
+  if(playerChoice===computerChoice){
+    resultText = `It's a draw! ${emoji[playerChoice]}`;
+    streak = 0;
+    gameRes = "draw";
+  } else if(
+    (playerChoice==='rock' && computerChoice==='scissors')||
+    (playerChoice==='paper' && computerChoice==='rock')||
+    (playerChoice==='scissors' && computerChoice==='paper')
+  ){
+    resultText = `You win! ${emoji[playerChoice]} beats ${emoji[computerChoice]}`;
+    playerScore++; wins++;
+    streak++; maxStreak = Math.max(streak,maxStreak);
+    gameRes = "win";
+  } else {
+    resultText = `You lose! ${emoji[computerChoice]} beats ${emoji[playerChoice]}`;
+    computerScore++; streak=0;
+    gameRes = "lose";
+  }
+  document.getElementById("result").innerHTML = `You: ${emoji[playerChoice]}<br>Computer: ${emoji[computerChoice]}<br>${resultText}`;
+  // History
+  history.unshift({player:playerChoice,computer:computerChoice,result:gameRes,time:new Date().toLocaleTimeString()});
+  if(history.length>10) history = history.slice(0,10);
+  saveStats();
+  showStats();
+  showHistory();
+}
+function showStats() {
+  document.getElementById("playerScore").innerText = playerScore;
+  document.getElementById("computerScore").innerText = computerScore;
+  document.getElementById("totalGames").innerText = totalGames;
+  document.getElementById("winRate").innerText = totalGames>0?Math.round((wins/totalGames)*100)+"%":"0%";
+  document.getElementById("streak").innerText = streak;
+}
+function showHistory() {
+  const emoji = {rock:"🗿",paper:"📄",scissors:"✂️"};
+  if(history.length<1){document.getElementById("historyList").innerHTML = "None yet."; return;}
+  document.getElementById("historyList").innerHTML = history
+    .map(h=>`${h.time}: ${emoji[h.player]} vs ${emoji[h.computer]} - ${h.result}`)
+    .join("<br>");
+}
+function resetStats() {
+  if(confirm("Reset all stats and scores?")){
+    playerScore=computerScore=totalGames=wins=streak=maxStreak=0; history=[];
+    saveStats(); showStats(); showHistory(); document.getElementById("result").innerHTML = "";
+  }
+}
+function saveStats() {
+  let data = {playerScore,computerScore,totalGames,wins,streak,maxStreak,history};
+  localStorage.setItem("rpsGameData",JSON.stringify(data));
+}
+// Keyboard shortcuts
+document.addEventListener("keydown",function(e){
+  if(document.getElementById("game-page").classList.contains("hidden"))return;
+  if(e.key==="r")play("rock");
+  if(e.key==="p")play("paper");
+  if(e.key==="s")play("scissors");
+});
+</script>
+</body>
+</html>
